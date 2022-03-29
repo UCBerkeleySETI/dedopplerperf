@@ -53,6 +53,7 @@
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>                                              //experimental feature study
 #include "device_launch_parameters.h"                               //not essential.  helps reduce some visual studio meaningless error messages
+#include <math.h>
 #include <stdlib.h>                                                 //gets me rand(),srand()
 #include <stdio.h>
 #include <time.h>                                                   //gets me clock()
@@ -66,6 +67,7 @@ using namespace std;
 void setAtestvals(Atype* A);
 void setAtestvals3(Atype* A);
 void setAtestvals4(Atype* A);
+void set_A_test_vals_matching_python(Atype* A);
 void compareA(Atype* A1, Atype* A2, int Nfreqlimit);
 void CPU_taylor(Atype* A);
 Atype* do_taylor_tree_on_GPU(string kname, Atype* d_A, Atype* d_B);
@@ -91,8 +93,21 @@ void findstepsA(Atype* A);
 
 //Dimensions of the Time/Frequency array.
 //It is important that these are constants, as that allows a lot of index arithmetic to be done at compile time
+
+// Set Ntime, Nfreq, to match Python
+const int Ntime = 256;
+const int Nfreq = 1 << 19;
+
+// Create test values the same way that the "value" function in turboseti_wrapper.py
+// does it.
+Atype get_test_value(int time, int freq) {
+  return ((time * freq) % 1337) * 0.123;
+}
+
+/*
 const int Ntime = 512;             // in this version, must be a power of TWO
 const int Nfreq = (1 << 20) + 512 + 8; // not constrained to power of 2, minimum is Ntime, max depends on your memory
+*/
 
 //For the CPU version of the kernel, Nfreq should NOT be a power of 2, because this makes the kernel run 6x slower due to cache contention
 //in columns of the array.  It should be at least "4" away from a power of 2, or maybe a bit more on some CPU models.  Anything above "4" seems
@@ -258,11 +273,12 @@ int main() {
     printf("A(%i, % i) = %f  expect 1.234567\n", Ntime - 1, 0, A(Ntime - 1, 0));
     printf("but accept 1.11111x and 1.23456x (theoretical limit of float mantissa is 6.2 digits)\n\n");
 
-// test one specific slope of our choosing.  Max value should be at [slope=5,freq=4]...
-    printf("\nTesting specific slope.  Max value should be at [slope=5,freq=4]...\n");
+    
+    printf("\nTesting benchmark data\n");
     memset(A, 0, Asize * sizeof(Atype));                                    //zero the A array  
-    setAtestvals3(A);                                                       //set values along a specific slope
-
+    set_A_test_vals_matching_python(A);
+    printf("initial values:\n");
+    showA(A);
     Ce(cudaMemcpy(d_A, A, Asize * sizeof(Atype), cudaMemcpyHostToDevice));  //copy A to device
     ct0 = clock();
     Atype* d_return2 = do_taylor_tree_on_GPU("d_taylor4shoulder", d_A, d_B);        //execute taylor tree algorithm
@@ -273,6 +289,8 @@ int main() {
     showA(A);
     printf("\n");
 
+    /*
+    
 //--------------------------------------------------------
 // 3rd test.  random array, compare CPU vs GPU results.
 //--------------------------------------------------------
@@ -310,7 +328,6 @@ int main() {
     compareA(A, A2, Nfreq - Ntime);                                        //Don't compare in the shoulder
     printf("\n");
 
-
     // more carefully time the kernel
     ct0 = clock();
     for (int k = 0; k < 20; k++) {
@@ -321,8 +338,9 @@ int main() {
     ct1 = clock();
     printf("GPU taylor tree time (more carefully measured, in a loop) = %f sec\n", float(ct1 - ct0) / CLOCKS_PER_SEC / 20.0);
 
+    */
 
-
+    /*
     ct0 = clock();
     for (int k = 0; k < 1000; k++) {
         d_nothing << <1000000 / 768, 768 >> > ();
@@ -330,7 +348,7 @@ int main() {
     Ce(cudaDeviceSynchronize());
     ct1 = clock();
     printf("empty kernel time =%f\n", float(ct1 - ct0) / CLOCKS_PER_SEC / 1000);
-
+    */
 
     //printf("find steps A2\n");
     //findstepsA(A2);
@@ -341,7 +359,7 @@ int main() {
     Ce(cudaFree(d_A));
     Ce(cudaFree(d_B));
     free(A);
-    free(A2);
+    // free(A2);
 
     return 0;
     } //end of main()
@@ -436,6 +454,14 @@ void setAtestvals4(Atype* A) {
             }
         }
     }
+
+void set_A_test_vals_matching_python(Atype* A) {
+  for (int time = 0; time < Ntime; time++) {
+    for (int freq = 0; freq < Nfreq; freq++) {
+      A(time, freq) = get_test_value(time, freq);
+    }
+  }
+}
 
 
 // compare two result arrays (for example CPU vs GPU)
