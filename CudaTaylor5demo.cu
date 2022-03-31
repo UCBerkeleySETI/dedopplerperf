@@ -94,11 +94,11 @@ void findstepsA(Atype* A);
 //Dimensions of the Time/Frequency array.
 //It is important that these are constants, as that allows a lot of index arithmetic to be done at compile time
 
-// Set Ntime, Nfreq, to match Python
+// Set Ntime, Nfreq, to match Python in performance.py
 const int Ntime = 256;
 const int Nfreq = 1 << 19;
 
-// Create test values the same way that the "value" function in turboseti_wrapper.py
+// Create test values the same way that the "get_test_value" function in performance.py
 // does it.
 Atype get_test_value(int time, int freq) {
   return ((time * freq) % 1337) * 0.123;

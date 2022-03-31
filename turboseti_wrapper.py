@@ -9,27 +9,16 @@ import time
 import turbo_seti
 from turbo_seti.find_doppler.kernels import Kernels
 
+from performance import *
+
 assert __name__ == "__main__"
 
 kernels = Kernels(gpu_backend=True, precision=1)
 assert kernels.gpu_backend
 
 
-N_TIME = 256
-N_FREQ = 2 ** 19
+arr = make_test_array()
 
-
-def get_test_value(time, freq):
-    """
-    This should match the logic in get_test_value in the C code.
-    """
-    return ((time * freq) % 1337) * 0.123
-
-
-arr = cp.array(
-    [get_test_value(x // N_FREQ, x % N_FREQ) for x in range(N_TIME * N_FREQ)],
-    dtype=float,
-)
 bin_height = f"{N_TIME:b}"
 assert bin_height.count("1") == 1
 
@@ -55,11 +44,7 @@ def unshuffle_array(arr):
     return output
 
 
-def show_array(arr):
-    for row in arr[:16]:
-        print("  ".join(f"{x.item():.8f}" for x in row[:8]))
-
-
+arr = make_test_array()
 print("array:")
 show_array(arr.reshape((N_TIME, N_FREQ)))
 start_time = time.time()
